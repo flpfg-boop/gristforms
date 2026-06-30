@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Formular-Ansicht</title>
+  <style>
+    body, html { 
+      margin: 0; 
+      padding: 0; 
+      height: 100%; 
+      overflow-x: hidden; /* Verhindert horizontales Scrollen auf der Hauptseite */
+      background-color: #fff;
+    }
+    
+    .iframe-wrapper {
+      width: 100%;
+      height: 100vh;
+      overflow: hidden;
+      position: relative;
+    }
+
+    iframe {
+      border: none;
+      transform-origin: top left;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+
+    #error {
+      font-family: sans-serif;
+      padding: 30px;
+      text-align: center;
+      color: #c0392b;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="error">
+    <h2>Fehler: Keine gültige Formular-ID angegeben.</h2>
+    <p>Bitte prüfen Sie den Link.</p>
+  </div>
+
+  <div class="iframe-wrapper">
+    <iframe id="grist-iframe" style="display: none;"></iframe>
+  </div>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const zoomLevel = parseFloat(urlParams.get('zoom')) || 1.3; // Standard: 130%
+    const formId = urlParams.get('form'); 
+
+    const iframe = document.getElementById('grist-iframe');
+    const errorDiv = document.getElementById('error');
+
+    if (formId) {
+      // Ihre angepasste Ausgangs-URL
+      const gristBaseUrl = `https://db.intranet.fgz-risc.de/forms/${formId}`;
+      iframe.src = gristBaseUrl;
+      
+      /* DIE TRICK-BERECHNUNG:
+        Damit das Formular nicht nach rechts aus dem Bildschirm herausragt, 
+        verkleinern wir die mathematische Breite des Iframes um den Zoom-Faktor (z.B. 100% / 1.3 = 76.9%).
+        Wenn das Iframe dann per 'scale(1.3)' vergrößert wird, landet es wieder bei exakt 100% Bildschirmbreite.
+        Grist merkt, dass es weniger "Platz" hat und bricht Texte/Elemente automatisch sauber um.
+      */
+      iframe.style.width = (100 / zoomLevel) + "%";
+      iframe.style.height = (100 / zoomLevel) + "vh";
+      iframe.style.transform = `scale(${zoomLevel})`;
+      
+      iframe.style.display = "block";
+    } else {
+      errorDiv.style.display = "block";
+    }
+  </script>
+</body>
+</html>
