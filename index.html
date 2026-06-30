@@ -2,81 +2,166 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Optimierte Formular-Ansicht</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mobiles Risc-Formular</title>
   <style>
-    body, html { 
-      margin: 0; 
-      padding: 0; 
-      height: 100%; 
-      overflow-x: hidden; /* Verhindert horizontales Scrollen auf dem Smartphone */
-      background-color: #ffffff; /* Erzwingt einen sauberen weißen Hintergrund */
+    /* HIER KÖNNEN SIE DIE SCHRIFTGRÖSSE FÜR DAS SMARTPHONE EINSTELLEN */
+    :root {
+      --global-font-size: 18px; 
+      --primary-color: #2c3e50;
     }
-    
-    .iframe-wrapper {
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: var(--global-font-size);
+      line-height: 1.5;
+      padding: 15px;
+      margin: 0;
+      background-color: #ffffff;
+      color: #333;
+    }
+
+    .form-container {
+      max-width: 100%;
+      margin: 0 auto;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: var(--primary-color);
+    }
+
+    /* Alle Eingabefelder nutzen die volle Breite und Ihre Wunschgröße */
+    input[type="text"], input[type="number"], input[type="email"], select, textarea {
       width: 100%;
-      height: 100vh;
-      overflow: hidden; /* Schneidet alles ab, was über den Bildschirmrand ragt */
-      position: relative;
+      padding: 12px;
+      font-size: var(--global-font-size);
+      border: 2px solid #ccc;
+      border-radius: 6px;
+      box-sizing: border-box;
     }
 
-    iframe {
+    /* Große Smartphone-Checkboxen */
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    input[type="checkbox"] {
+      width: 24px;
+      height: 24px;
+    }
+
+    .submit-btn {
+      background-color: var(--primary-color);
+      color: white;
       border: none;
-      position: absolute;
-      top: 0;
-      
-      /* TRICK: Wir machen das Iframe absichtlich breiter als den Bildschirm,
-         um den graublauen Grist-Hintergrund links und rechts "wegzuschneiden" */
-      width: 140%; 
-      left: -20%; /* Verschiebt das Iframe nach links, sodass das Formular zentriert ist */
-      height: 100%;
-
-      transform-origin: top center;
+      padding: 14px;
+      font-size: var(--global-font-size);
+      font-weight: bold;
+      border-radius: 6px;
+      width: 100%;
+      cursor: pointer;
     }
 
-    #error {
-      font-family: sans-serif;
-      padding: 30px;
+    #status {
+      margin-top: 15px;
       text-align: center;
-      color: #c0392b;
-      display: none;
+      font-weight: bold;
     }
   </style>
 </head>
 <body>
 
-  <div id="error">
-    <h2>Fehler: Keine gültige Formular-ID angegeben.</h2>
-    <p>Bitte prüfen Sie den Link.</p>
-  </div>
-
-  <div class="iframe-wrapper">
-    <iframe id="grist-iframe" style="display: none;"></iframe>
+  <div class="form-container">
+    <h2 id="form-title">Formular wird geladen...</h2>
+    <form id="generated-form">
+      </form>
+    <div id="status"></div>
   </div>
 
   <script>
     const urlParams = new URLSearchParams(window.location.search);
-    // Da wir das Formular durch das Strecken bereits vergrößern, 
-    // reicht hier meist ein kleinerer Zoom-Faktor (z.B. 1.15 oder 1.2) für perfekte Lesbarkeit.
-    const zoomLevel = parseFloat(urlParams.get('zoom')) || 1.15; 
-    const formId = urlParams.get('form'); 
-
-    const iframe = document.getElementById('grist-iframe');
-    const errorDiv = document.getElementById('error');
+    const formId = urlParams.get('form');
+    const formElement = document.getElementById('generated-form');
 
     if (formId) {
-      // Reiner Formular-Link ohne den nicht funktionierenden Embed-Befehl
-      const gristBaseUrl = `https://db.intranet.fgz-risc.de/forms/${formId}`;
-      iframe.src = gristBaseUrl;
-      
-      // Kombinierte Skalierung: Das Formular füllt das Smartphone jetzt perfekt aus
-      iframe.style.height = (100 / zoomLevel) + "vh";
-      iframe.style.transform = `scale(${zoomLevel})`;
-      
-      iframe.style.display = "block";
-    } else {
-      errorDiv.style.display = "block";
+      // Wir holen uns die nackten Formular-Daten (JSON-Struktur) direkt von Ihrer Grist-Instanz
+      const schemaUrl = `https://db.intranet.fgz-risc.de/api/forms/${formId}`;
+
+      fetch(schemaUrl)
+        .then(response => response.json())
+        .then(data => {
+          document.getElementById('form-title').innerText = data.name || "Formular";
+          
+          // Wir gehen durch alle Fragen, die Sie im Grist-Formular angelegt haben
+          data.fields.forEach(field => {
+            const div = document.createElement('div');
+            div.className = "form-group";
+
+            // Generierung basierend auf dem Grist-Typ (Text, Checkbox etc.)
+            if (field.type === 'Bool') {
+              div.className = "form-group checkbox-group";
+              div.innerHTML = `<input type="checkbox" id="${field.colId}" name="${field.colId}"><label for="${field.colId}">${field.label}</label>`;
+            } else if (field.type === 'Choice') {
+              let options = field.widgetOptions?.choices?.map(o => `<option value="${o}">${o}</option>`).join('') || '';
+              div.innerHTML = `<label>${field.label}</label><select name="${field.colId}">${options}</select>`;
+            } else {
+              div.innerHTML = `<label>${field.label}</label><input type="text" name="${field.colId}">`;
+            }
+            formElement.appendChild(div);
+          });
+
+          // Absendebutton hinzufügen
+          const btn = document.createElement('button');
+          btn.type = "submit";
+          btn.className = "submit-btn";
+          btn.innerText = "Absenden";
+          formElement.appendChild(btn);
+        })
+        .catch(err => {
+          document.getElementById('form-title').innerText = "Verbindungsfehler";
+          console.error(err);
+        });
     }
+
+    // Daten zurück an Grist senden bei Klick auf Absenden
+    formElement.addEventListener('submit', function(e) {
+      e.preventDefault();
+      document.getElementById('status').innerText = "Wird gesendet...";
+      
+      const formData = new FormData(formElement);
+      const payload = { records: [{ fields: {} }] };
+      
+      formData.forEach((value, key) => {
+        const inputElement = formElement.elements[key];
+        payload.records[0].fields[key] = inputElement.type === 'checkbox' ? inputElement.checked : value;
+      });
+
+      // Absenden an die offizielle Grist-Schnittstelle für dieses spezifische Formular
+      fetch(`https://db.intranet.fgz-risc.de/api/forms/${formId}/submit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      })
+      .then(res => {
+        if (res.ok) {
+          document.getElementById('status').innerText = "✓ Erfolgreich abgesendet!";
+          document.getElementById('status').style.color = "green";
+          formElement.reset();
+        } else {
+          document.getElementById('status').innerText = "Fehler beim Speichern.";
+          document.getElementById('status').style.color = "red";
+        }
+      });
+    });
   </script>
 </body>
 </html>
