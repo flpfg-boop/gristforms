@@ -3,20 +3,21 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Formular-Ansicht</title>
+  <title>Optimierte Formular-Ansicht</title>
   <style>
     body, html { 
       margin: 0; 
       padding: 0; 
       height: 100%; 
-      overflow-x: hidden; /* Verhindert horizontales Scrollen auf der Hauptseite */
-      background-color: #fff;
+      overflow-x: hidden; /* Verhindert horizontales Scrollen der Hauptseite */
+      background-color: #ffffff;
     }
     
     .iframe-wrapper {
       width: 100%;
       height: 100vh;
-      overflow: hidden;
+      overflow-x: hidden;
+      overflow-y: auto; /* Erlaubt vertikales Scrollen für lange Formulare */
       position: relative;
     }
 
@@ -50,22 +51,24 @@
 
   <script>
     const urlParams = new URLSearchParams(window.location.search);
-    const zoomLevel = parseFloat(urlParams.get('zoom')) || 1.3; // Standard: 130%
+    const zoomLevel = parseFloat(urlParams.get('zoom')) || 1.3; // Standard: 130% Vergrößerung
     const formId = urlParams.get('form'); 
 
     const iframe = document.getElementById('grist-iframe');
     const errorDiv = document.getElementById('error');
 
     if (formId) {
-      // Ihre angepasste Ausgangs-URL
-      const gristBaseUrl = `https://db.intranet.fgz-risc.de/forms/${formId}`;
+      /* AUTOMATISCHER RAHMEN-KILLER: 
+        Wir hängen '?embed=true' an Ihre Intranet-URL. Dadurch schaltet Grist 
+        in den rahmenlosen Fullscreen-Modus und füllt die komplette Breite aus.
+      */
+      const gristBaseUrl = `https://db.intranet.fgz-risc.de/forms/${formId}?embed=true`;
       iframe.src = gristBaseUrl;
       
-      /* DIE TRICK-BERECHNUNG:
-        Damit das Formular nicht nach rechts aus dem Bildschirm herausragt, 
-        verkleinern wir die mathematische Breite des Iframes um den Zoom-Faktor (z.B. 100% / 1.3 = 76.9%).
-        Wenn das Iframe dann per 'scale(1.3)' vergrößert wird, landet es wieder bei exakt 100% Bildschirmbreite.
-        Grist merkt, dass es weniger "Platz" hat und bricht Texte/Elemente automatisch sauber um.
+      /* BREITEN-LIMITIERUNG:
+        Durch die Division (100 / zoomLevel) bleibt das Formular trotz Zoom 
+        mathematisch exakt innerhalb des Smartphone-Bildschirms stehen. 
+        Grist bricht alle Inhalte automatisch um, ohne dass man nach rechts scrollen muss.
       */
       iframe.style.width = (100 / zoomLevel) + "%";
       iframe.style.height = (100 / zoomLevel) + "vh";
