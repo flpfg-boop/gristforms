@@ -2,166 +2,58 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mobiles Risc-Formular</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Mobiles Formular</title>
   <style>
-    /* HIER KÖNNEN SIE DIE SCHRIFTGRÖSSE FÜR DAS SMARTPHONE EINSTELLEN */
-    :root {
-      --global-font-size: 18px; 
-      --primary-color: #2c3e50;
+    body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #fff; }
+    #container { width: 100%; height: 100%; -webkit-overflow-scrolling: touch; overflow-y: scroll; }
+    
+    /* HIER REINIZIIEREN WIR IHR GEWÜNSCHTES CSS DIREKT IN DEN GRIST-RAHMEN */
+    .grist-form-container, [class*="grist-form-container"] {
+      max-width: 100% !important;
+      margin: 0 !important;
+      padding: 10px !important;
+      border: none !important;
+      box-shadow: none !important;
     }
-
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      font-size: var(--global-font-size);
-      line-height: 1.5;
-      padding: 15px;
-      margin: 0;
-      background-color: #ffffff;
-      color: #333;
-    }
-
-    .form-container {
-      max-width: 100%;
-      margin: 0 auto;
-    }
-
-    .form-group {
-      margin-bottom: 20px;
-    }
-
-    label {
-      display: block;
-      font-weight: 600;
-      margin-bottom: 8px;
-      color: var(--primary-color);
-    }
-
-    /* Alle Eingabefelder nutzen die volle Breite und Ihre Wunschgröße */
-    input[type="text"], input[type="number"], input[type="email"], select, textarea {
-      width: 100%;
-      padding: 12px;
-      font-size: var(--global-font-size);
-      border: 2px solid #ccc;
-      border-radius: 6px;
-      box-sizing: border-box;
-    }
-
-    /* Große Smartphone-Checkboxen */
-    .checkbox-group {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    input[type="checkbox"] {
-      width: 24px;
-      height: 24px;
-    }
-
-    .submit-btn {
-      background-color: var(--primary-color);
-      color: white;
-      border: none;
-      padding: 14px;
-      font-size: var(--global-font-size);
-      font-weight: bold;
-      border-radius: 6px;
-      width: 100%;
-      cursor: pointer;
-    }
-
-    #status {
-      margin-top: 15px;
-      text-align: center;
-      font-weight: bold;
+    html, body, p, label, input, select, textarea {
+      font-size: 18px !important; /* Ihre Wunschgröße */
     }
   </style>
 </head>
 <body>
 
-  <div class="form-container">
-    <h2 id="form-title">Formular wird geladen...</h2>
-    <form id="generated-form">
-      </form>
-    <div id="status"></div>
-  </div>
+  <div id="container">Lade Formular...</div>
 
   <script>
     const urlParams = new URLSearchParams(window.location.search);
     const formId = urlParams.get('form');
-    const formElement = document.getElementById('generated-form');
 
     if (formId) {
-      // Wir holen uns die nackten Formular-Daten (JSON-Struktur) direkt von Ihrer Grist-Instanz
-      const schemaUrl = `https://db.intranet.fgz-risc.de/api/forms/${formId}`;
-
-      fetch(schemaUrl)
-        .then(response => response.json())
+      const targetUrl = `https://db.intranet.fgz-risc.de/forms/${formId}`;
+      
+      // Wir nutzen einen öffentlichen CORS-Proxy, um den Quelltext des Formulars zu laden
+      fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`)
+        .then(response => {
+          if (response.ok) return response.json();
+          throw new Error('Netzwerk-Fehler');
+        })
         .then(data => {
-          document.getElementById('form-title').innerText = data.name || "Formular";
-          
-          // Wir gehen durch alle Fragen, die Sie im Grist-Formular angelegt haben
-          data.fields.forEach(field => {
-            const div = document.createElement('div');
-            div.className = "form-group";
+          // Wir setzen den Grist-Inhalt direkt in unsere Seite ein
+          const container = document.getElementById('container');
+          container.innerHTML = data.contents;
 
-            // Generierung basierend auf dem Grist-Typ (Text, Checkbox etc.)
-            if (field.type === 'Bool') {
-              div.className = "form-group checkbox-group";
-              div.innerHTML = `<input type="checkbox" id="${field.colId}" name="${field.colId}"><label for="${field.colId}">${field.label}</label>`;
-            } else if (field.type === 'Choice') {
-              let options = field.widgetOptions?.choices?.map(o => `<option value="${o}">${o}</option>`).join('') || '';
-              div.innerHTML = `<label>${field.label}</label><select name="${field.colId}">${options}</select>`;
-            } else {
-              div.innerHTML = `<label>${field.label}</label><input type="text" name="${field.colId}">`;
-            }
-            formElement.appendChild(div);
-          });
-
-          // Absendebutton hinzufügen
-          const btn = document.createElement('button');
-          btn.type = "submit";
-          btn.className = "submit-btn";
-          btn.innerText = "Absenden";
-          formElement.appendChild(btn);
+          // Wir biegen die relativen Pfade von Grist um, damit Scripte und Bilder geladen werden
+          const base = document.createElement('base');
+          base.href = "https://db.intranet.fgz-risc.de/";
+          document.head.appendChild(base);
         })
         .catch(err => {
-          document.getElementById('form-title').innerText = "Verbindungsfehler";
-          console.error(err);
+          document.getElementById('container').innerText = "Das Formular konnte nicht geladen werden. Bitte stellen Sie sicher, dass Sie mit dem Intranet/VPN verbunden sind.";
         });
+    } else {
+      document.getElementById('container').innerText = "Fehler: Keine Formular-ID angegeben.";
     }
-
-    // Daten zurück an Grist senden bei Klick auf Absenden
-    formElement.addEventListener('submit', function(e) {
-      e.preventDefault();
-      document.getElementById('status').innerText = "Wird gesendet...";
-      
-      const formData = new FormData(formElement);
-      const payload = { records: [{ fields: {} }] };
-      
-      formData.forEach((value, key) => {
-        const inputElement = formElement.elements[key];
-        payload.records[0].fields[key] = inputElement.type === 'checkbox' ? inputElement.checked : value;
-      });
-
-      // Absenden an die offizielle Grist-Schnittstelle für dieses spezifische Formular
-      fetch(`https://db.intranet.fgz-risc.de/api/forms/${formId}/submit`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      })
-      .then(res => {
-        if (res.ok) {
-          document.getElementById('status').innerText = "✓ Erfolgreich abgesendet!";
-          document.getElementById('status').style.color = "green";
-          formElement.reset();
-        } else {
-          document.getElementById('status').innerText = "Fehler beim Speichern.";
-          document.getElementById('status').style.color = "red";
-        }
-      });
-    });
   </script>
 </body>
 </html>
